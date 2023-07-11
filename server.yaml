@@ -1,0 +1,33 @@
+---
+loadbalancers:
+  - name: default
+    layer: 3
+    vips:
+      - 10.188.0.240
+      - 10.188.0.241
+      - 10.188.0.242
+    bgp:
+      asn: 6550
+      routerID: 1.1.1.1
+      listenPort: -1
+    upstream:
+      mode: bgp
+      peers:
+        - address: 10.188.0.50
+          asn: 65500
+        - address: 10.188.0.51
+          asn: 65500
+        - address: 10.188.0.52
+          asn: 65500
+    downstream:
+      mode: bgp
+      peers:
+        - address: 10.188.0.40
+          asn: 65500
+          weight: 1
+        - address: 10.188.0.41
+          asn: 65500
+          weight: 1
+        - address: 10.188.0.42
+          asn: 65500
+          weight: 1
