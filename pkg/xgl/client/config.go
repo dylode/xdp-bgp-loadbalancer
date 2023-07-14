@@ -1,8 +1,7 @@
 package client
 
 import (
-	"log"
-
+	"github.com/charmbracelet/log"
 	"github.com/spf13/viper"
 )
 

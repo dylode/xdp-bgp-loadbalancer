@@ -1,7 +1,7 @@
 package server
 
 import (
-	"log"
+	"github.com/charmbracelet/log"
 
 	"github.com/spf13/viper"
 )
@@ -31,12 +31,13 @@ type Config struct {
 type LoadBalancer struct {
 	Name  string            `mapstructure:"name"`
 	Layer LoadBalancerLayer `mapstructure:"layer"`
+	BGP   BGP               `mapstructure:"bgp"`
 }
 
 type BGP struct {
-	ASN        int    `mapstructure:"asn"`
+	ASN        uint32 `mapstructure:"asn"`
 	RouterID   string `mapstructure:"routerID"`
-	ListenPort uint   `mapstructure:"listenPort"`
+	ListenPort int32  `mapstructure:"listenPort"`
 }
 
 type Upstream struct {

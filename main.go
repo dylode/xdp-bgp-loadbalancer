@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"dylode.nl/xdp-bgp-loadbalancer/internal/cmd"
+	"dylode.nl/xdp-bgp-loadbalancer/cmd"
 )
 
 func main() {

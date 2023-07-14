@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"dylode.nl/xdp-bgp-loadbalancer/internal/cmd/client"
-	"dylode.nl/xdp-bgp-loadbalancer/internal/cmd/server"
+	"dylode.nl/xdp-bgp-loadbalancer/cmd/client"
+	"dylode.nl/xdp-bgp-loadbalancer/cmd/server"
 	"github.com/spf13/cobra"
 )
 
