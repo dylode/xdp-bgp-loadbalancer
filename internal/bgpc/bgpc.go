@@ -27,7 +27,7 @@ func New(config Config) *bgpc {
 	return &bgpc{
 		config: config,
 
-		server: server.NewBgpServer(),
+		server: server.NewBgpServer(server.LoggerOption(GoBGPLogger{})),
 		gshut:  graceshut.New(),
 	}
 }
@@ -57,6 +57,7 @@ func (bc *bgpc) Run(ctx context.Context) error {
 	go bc.listPeers(ctx, &wg)
 
 	bc.gshut.WaitForClose()
+
 	log.Debug("closing bgp server controller")
 	cancel()
 
@@ -87,8 +88,7 @@ func (bc *bgpc) startBGP(ctx context.Context) error {
 }
 
 func (bc *bgpc) stopBGP(ctx context.Context) error {
-	err := bc.server.StopBgp(ctx, &api.StopBgpRequest{})
-	if err != nil {
+	if err := bc.server.StopBgp(ctx, &api.StopBgpRequest{}); err != nil {
 		return errors.Join(errors.New("could not stop bgp server"))
 	}
 
