@@ -14,12 +14,8 @@ func Run(config Config) error {
 	ctx, stop := graceshut.CreateContext()
 	defer stop()
 
-	bgpController := bgpc.New(ctx, bgpc.Config{
-		ASN:        config.BGP.ASN,
-		RouterID:   config.BGP.RouterID,
-		ListenPort: config.BGP.ListenPort,
-	})
-	go bgpController.Run()
+	bgpController := bgpc.New(config.BGPC)
+	go bgpController.Run(ctx)
 
 	<-ctx.Done()
 

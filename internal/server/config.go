@@ -1,32 +1,14 @@
 package server
 
 import (
+	"dylode.nl/xdp-bgp-loadbalancer/internal/bgpc"
 	"github.com/charmbracelet/log"
 
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	BGP BGP `mapstructure:"bgp"`
-}
-
-type BGP struct {
-	ASN             uint32           `mapstructure:"asn"`
-	RouterID        string           `mapstructure:"router_id"`
-	ListenPort      int32            `mapstructure:"listen_port"`
-	UpstreamPeers   []UpstreamPeer   `mapstructure:"upstream_peers"`
-	DownstreamPeers []DownstreamPeer `mapstructure:"downstream_peers"`
-}
-
-type UpstreamPeer struct {
-	Address string `mapstructure:"address"`
-	ASN     int    `mapstructure:"asn"`
-}
-
-type DownstreamPeer struct {
-	Address string `mapstructure:"address"`
-	ASN     int    `mapstructure:"asn"`
-	Weight  int    `mapstructure:"weight"`
+	BGPC bgpc.Config `mapstructure:"bgp"`
 }
 
 func ParseConfig(configFilePath string) Config {

@@ -1,15 +1,13 @@
 ---
 bgp:
-  asn: 6550
+  asn: 65100
   router_id: 1.1.1.1
   listen_port: 179
   upstream_peers:
-    - address: 10.188.0.50
-      asn: 65500
-    - address: 10.188.0.51
-      asn: 65500
-    - address: 10.188.0.52
-      asn: 65500
+    - address: 10.145.145.10
+      asn: 65100
+    - address: 10.145.145.11
+      asn: 65100
 
 #loadbalancers:
 #  - name: default

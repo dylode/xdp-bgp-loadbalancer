@@ -1,0 +1,35 @@
+---
+version: '3'
+services:
+  upstream1:
+    image: quay.io/frrouting/frr:8.5.2
+    volumes:
+      - ./configs/frr/upstream1:/etc/frr
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+      - SYS_ADMIN
+    restart: unless-stopped
+    networks:
+      xgl:
+        ipv4_address: 10.145.145.10
+  upstream2:
+    image: quay.io/frrouting/frr:8.5.2
+    volumes:
+      - ./configs/frr/upstream2:/etc/frr
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+      - SYS_ADMIN
+    restart: unless-stopped
+    networks:
+      xgl:
+        ipv4_address: 10.145.145.11
+
+networks:
+  xgl:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.145.145.0/24
