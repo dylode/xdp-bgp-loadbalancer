@@ -120,17 +120,38 @@ func (bc *bgpc) listPeers(ctx context.Context, wg *sync.WaitGroup) {
 
 	run := true
 	for run {
+		err := bc.server.ListPath(ctx, &api.ListPathRequest{
+			Family: &api.Family{
+				Afi:  api.Family_AFI_IP,
+				Safi: api.Family_SAFI_UNICAST,
+			},
+		}, func(d *api.Destination) {
+			fmt.Println(d.Prefix, len(d.Paths))
+
+			for _, path := range d.Paths {
+				fmt.Printf("%s \n", path.NeighborIp)
+
+				for _, attr := range path.Pattrs {
+					fmt.Println(attr)
+				}
+			}
+		})
+		if err != nil {
+			log.Error("could not list path", "err", err)
+		}
+
+		//bc.server.ListPeer(ctx, &api.ListPeerRequest{}, func(p *api.Peer) {
+		//	fmt.Println(p)
+		//})
+
+		time.Sleep(1 * time.Second)
+
 		select {
 		case <-ctx.Done():
 			run = false
 		default:
 		}
 
-		bc.server.ListPeer(ctx, &api.ListPeerRequest{}, func(p *api.Peer) {
-			fmt.Println(p.State.SessionState.String())
-		})
-
-		time.Sleep(1 * time.Second)
 	}
 }
 
