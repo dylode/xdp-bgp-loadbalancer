@@ -6,48 +6,16 @@ import (
 	"github.com/spf13/viper"
 )
 
-type LoadBalancerLayer int
-
-type UpstreamMode string
-type DownstreamMode string
-
-const (
-	LoadBalancerLayer3 LoadBalancerLayer = 3
-	LoadBalancerLayer4 LoadBalancerLayer = 4
-)
-
-const (
-	UpstreamModeBGP UpstreamMode = "BGP"
-)
-
-const (
-	DownstreamModeBGP DownstreamMode = "BGP"
-)
-
 type Config struct {
-	LoadBalancers []LoadBalancer `mapstructure:"loadbalancers"`
-}
-
-type LoadBalancer struct {
-	Name  string            `mapstructure:"name"`
-	Layer LoadBalancerLayer `mapstructure:"layer"`
-	BGP   BGP               `mapstructure:"bgp"`
+	BGP BGP `mapstructure:"bgp"`
 }
 
 type BGP struct {
-	ASN        uint32 `mapstructure:"asn"`
-	RouterID   string `mapstructure:"routerID"`
-	ListenPort int32  `mapstructure:"listenPort"`
-}
-
-type Upstream struct {
-	Mode  UpstreamMode   `mapstructure:"mode"`
-	Peers []UpstreamPeer `mapstructure:"peers"`
-}
-
-type Downstream struct {
-	Mode  DownstreamMode   `mapstructure:"mode"`
-	Peers []DownstreamPeer `mapstructure:"peers"`
+	ASN             uint32           `mapstructure:"asn"`
+	RouterID        string           `mapstructure:"router_id"`
+	ListenPort      int32            `mapstructure:"listen_port"`
+	UpstreamPeers   []UpstreamPeer   `mapstructure:"upstream_peers"`
+	DownstreamPeers []DownstreamPeer `mapstructure:"downstream_peers"`
 }
 
 type UpstreamPeer struct {

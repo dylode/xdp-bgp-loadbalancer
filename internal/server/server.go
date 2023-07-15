@@ -1,12 +1,8 @@
 package server
 
 import (
-	"context"
-	"os"
-	"os/signal"
-	"syscall"
-
 	"dylode.nl/xdp-bgp-loadbalancer/internal/bgpc"
+	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceshut"
 )
 
 func RunWithConfigFile(configFilePath string) error {
@@ -15,16 +11,13 @@ func RunWithConfigFile(configFilePath string) error {
 }
 
 func Run(config Config) error {
-	ctx, stop := signal.NotifyContext(context.Background(),
-		os.Interrupt,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
+	ctx, stop := graceshut.CreateContext()
 	defer stop()
 
 	bgpController := bgpc.New(ctx, bgpc.Config{
-		ASN:        config.LoadBalancers[0].BGP.ASN,
-		RouterID:   config.LoadBalancers[0].BGP.RouterID,
-		ListenPort: config.LoadBalancers[0].BGP.ListenPort,
+		ASN:        config.BGP.ASN,
+		RouterID:   config.BGP.RouterID,
+		ListenPort: config.BGP.ListenPort,
 	})
 	go bgpController.Run()
 

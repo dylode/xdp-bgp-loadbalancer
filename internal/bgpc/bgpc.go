@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceclose"
+	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceshut"
 	"github.com/charmbracelet/log"
 	"github.com/osrg/gobgp/v3/pkg/server"
 
@@ -22,7 +22,7 @@ type bgpc struct {
 	config Config
 
 	server *server.BgpServer
-	gc     *graceclose.GraceClose
+	gshut  *graceshut.GraceShut
 }
 
 func New(ctx context.Context, config Config) *bgpc {
@@ -31,12 +31,12 @@ func New(ctx context.Context, config Config) *bgpc {
 		config: config,
 
 		server: server.NewBgpServer(),
-		gc:     graceclose.New(),
+		gshut:  graceshut.New(),
 	}
 }
 
 func (bc *bgpc) Run() error {
-	defer bc.gc.Done()
+	defer bc.gshut.Done()
 
 	log.Debug("starting bgp server controller")
 	go bc.server.Serve()
@@ -54,11 +54,11 @@ func (bc *bgpc) Run() error {
 
 	log.Info("bgp server running")
 
-	bc.gc.WaitForClose()
+	bc.gshut.WaitForClose()
 
 	log.Debug("closing bgp server controller")
-	
-	err = bc.server.StopBgp(context.Background(), &api.StopBgpRequest{})
+
+	err = bc.server.StopBgp(bc.ctx, &api.StopBgpRequest{})
 	if err != nil {
 		return errors.Join(errors.New("could not stop bgp server"))
 	}
@@ -69,6 +69,6 @@ func (bc *bgpc) Run() error {
 }
 
 func (bc *bgpc) Close() {
-	defer bc.gc.WaitForDone()
-	bc.gc.Close()
+	defer bc.gshut.WaitForDone()
+	bc.gshut.Close()
 }
