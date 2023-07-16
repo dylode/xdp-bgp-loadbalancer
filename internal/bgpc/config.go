@@ -1,5 +1,7 @@
 package bgpc
 
+const errorChanSize = 255
+
 type Config struct {
 	ASN             uint32                 `mapstructure:"asn"`
 	RouterID        string                 `mapstructure:"router_id"`

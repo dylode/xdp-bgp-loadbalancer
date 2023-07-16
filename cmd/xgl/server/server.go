@@ -2,6 +2,7 @@ package server
 
 import (
 	"dylode.nl/xdp-bgp-loadbalancer/internal/server"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 )
 
@@ -12,8 +13,11 @@ func NewCommand() *cobra.Command {
 		Use:   "server",
 		Short: "start xbl server",
 		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return server.RunWithConfigFile(configFilePath)
+		Run: func(cmd *cobra.Command, args []string) {
+			err := server.RunWithConfigFile(configFilePath)
+			if err != nil {
+				log.Error("exited due to error", "err", err)
+			}
 		},
 	}
 

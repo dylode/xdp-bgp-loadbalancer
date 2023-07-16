@@ -38,6 +38,7 @@ func (bc *bgpc) Run(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
+	// initialization
 	log.Debug("starting bgp server controller")
 	go bc.server.Serve()
 
@@ -51,24 +52,43 @@ func (bc *bgpc) Run(ctx context.Context) error {
 		return err
 	}
 
+	// run state
+	errc := make(chan error, errorChanSize)
 	var wg sync.WaitGroup
 
 	wg.Add(1)
-	go bc.listPeers(ctx, &wg)
+	go func() {
+		defer wg.Done()
+		if err := bc.listPeers(ctx); err != nil {
+			errc <- err
+		}
+	}()
 
-	bc.gshut.WaitForClose()
+	// wait for exit signal
+	select {
+	case cErr := <-errc:
+		err = cErr
+	case <-bc.gshut.WaitForClose():
+	case <-ctx.Done():
+	}
 
+	// clean up
 	log.Debug("closing bgp server controller")
 	cancel()
 
-	err = bc.stopBGP(context.Background())
-	if err != nil {
-		return err
+	if err := bc.stopBGP(context.Background()); err != nil {
+		errc <- err
 	}
 
 	wg.Wait()
 
-	return nil
+	// process errors
+	close(errc)
+	for cErr := range errc {
+		err = errors.Join(err, cErr)
+	}
+
+	return err
 }
 
 func (bc *bgpc) startBGP(ctx context.Context) error {
@@ -89,7 +109,7 @@ func (bc *bgpc) startBGP(ctx context.Context) error {
 
 func (bc *bgpc) stopBGP(ctx context.Context) error {
 	if err := bc.server.StopBgp(ctx, &api.StopBgpRequest{}); err != nil {
-		return errors.Join(errors.New("could not stop bgp server"))
+		return errors.Join(errors.New("could not stop bgp server"), err)
 	}
 
 	log.Info("bgp server stopped")
@@ -115,9 +135,7 @@ func (bc *bgpc) addPeers(ctx context.Context) error {
 	return nil
 }
 
-func (bc *bgpc) listPeers(ctx context.Context, wg *sync.WaitGroup) {
-	defer wg.Done()
-
+func (bc *bgpc) listPeers(ctx context.Context) error {
 	run := true
 	for run {
 		err := bc.server.ListPath(ctx, &api.ListPathRequest{
@@ -137,7 +155,7 @@ func (bc *bgpc) listPeers(ctx context.Context, wg *sync.WaitGroup) {
 			}
 		})
 		if err != nil {
-			log.Error("could not list path", "err", err)
+			return errors.Join(errors.New("could not list path"), err)
 		}
 
 		//bc.server.ListPeer(ctx, &api.ListPeerRequest{}, func(p *api.Peer) {
@@ -153,6 +171,8 @@ func (bc *bgpc) listPeers(ctx context.Context, wg *sync.WaitGroup) {
 		}
 
 	}
+
+	return nil
 }
 
 func (bc *bgpc) Close() {

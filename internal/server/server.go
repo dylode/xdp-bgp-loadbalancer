@@ -1,9 +1,13 @@
 package server
 
 import (
+	"errors"
+	"sync"
+
 	"dylode.nl/xdp-bgp-loadbalancer/internal/bgpc"
 	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceshut"
 )
+
 
 func RunWithConfigFile(configFilePath string) error {
 	config := ParseConfig(configFilePath)
@@ -11,15 +15,39 @@ func RunWithConfigFile(configFilePath string) error {
 }
 
 func Run(config Config) error {
-	ctx, stop := graceshut.CreateContext()
-	defer stop()
+	ctx, cancel := graceshut.CreateContext()
+	defer cancel()
+
+	errc := make(chan error, errorChanSize)
+	var wg sync.WaitGroup
 
 	bgpController := bgpc.New(config.BGPC)
-	go bgpController.Run(ctx)
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := bgpController.Run(ctx); err != nil {
+			errc <- err
+		}
+	}()
 
-	<-ctx.Done()
+	// wait for exit signal
+	var err error
+	select {
+	case cErr := <-errc:
+		err = cErr
+		cancel()
+	case <-ctx.Done():
+	}
 
+	// clean up
 	bgpController.Close()
+	wg.Wait()
 
-	return nil
+	// process errors
+	close(errc)
+	for cErr := range errc {
+		err = errors.Join(err, cErr)
+	}
+
+	return err
 }

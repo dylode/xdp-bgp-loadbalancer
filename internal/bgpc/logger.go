@@ -1,6 +1,8 @@
 package bgpc
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/log"
 
 	gobgpLog "github.com/osrg/gobgp/v3/pkg/log"
@@ -11,33 +13,38 @@ type GoBGPLogger struct{}
 func convertFields(fields gobgpLog.Fields) []any {
 	params := make([]any, 0, len(fields)*2)
 	for key, value := range fields {
-		params = append(params, key, value)
+		switch v := value.(type) {
+		case string:
+			value = strings.ToLower(v)
+		}
+
+		params = append(params, strings.ToLower(key), value)
 	}
 	return params
 }
 
 func (GoBGPLogger) Panic(msg string, fields gobgpLog.Fields) {
-	log.Fatal(msg, convertFields(fields)...)
+	log.Fatal(strings.ToLower(msg), convertFields(fields)...)
 }
 
 func (GoBGPLogger) Fatal(msg string, fields gobgpLog.Fields) {
-	log.Fatal(msg, convertFields(fields)...)
+	log.Fatal(strings.ToLower(msg), convertFields(fields)...)
 }
 
 func (GoBGPLogger) Error(msg string, fields gobgpLog.Fields) {
-	log.Error(msg, convertFields(fields)...)
+	log.Error(strings.ToLower(msg), convertFields(fields)...)
 }
 
 func (GoBGPLogger) Warn(msg string, fields gobgpLog.Fields) {
-	log.Warn(msg, convertFields(fields)...)
+	log.Warn(strings.ToLower(msg), convertFields(fields)...)
 }
 
 func (GoBGPLogger) Info(msg string, fields gobgpLog.Fields) {
-	log.Info(msg, convertFields(fields)...)
+	log.Info(strings.ToLower(msg), convertFields(fields)...)
 }
 
 func (GoBGPLogger) Debug(msg string, fields gobgpLog.Fields) {
-	log.Debug(msg, convertFields(fields)...)
+	log.Debug(strings.ToLower(msg), convertFields(fields)...)
 }
 
 func (GoBGPLogger) SetLevel(level gobgpLog.LogLevel) {

@@ -7,6 +7,8 @@ import (
 	"github.com/spf13/viper"
 )
 
+const errorChanSize = 255
+
 type Config struct {
 	BGPC bgpc.Config `mapstructure:"bgp"`
 }
