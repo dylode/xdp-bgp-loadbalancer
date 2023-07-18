@@ -1,7 +1,6 @@
 package xgl
 
 import (
-	"dylode.nl/xdp-bgp-loadbalancer/cmd/xgl/client"
 	"dylode.nl/xdp-bgp-loadbalancer/cmd/xgl/server"
 	"github.com/spf13/cobra"
 )
@@ -14,7 +13,6 @@ func NewCommand() *cobra.Command {
 	}
 
 	cmd.AddCommand(server.NewCommand())
-	cmd.AddCommand(client.NewCommand())
 
 	return cmd
 }
