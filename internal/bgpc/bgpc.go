@@ -28,8 +28,8 @@ type bgpc struct {
 	server *server.BgpServer
 	gshut  *graceshut.GraceShut
 
-	upStreamPeers   []*api.Peer
-	downStreamPeers []*api.Peer
+	upstreamPeers   []*api.Peer
+	downstreamPeers []*api.Peer
 
 	rib rib
 }
@@ -41,8 +41,8 @@ func New(config Config) *bgpc {
 		server: server.NewBgpServer(server.LoggerOption(GoBGPLogger{})),
 		gshut:  graceshut.New(),
 
-		upStreamPeers:   make([]*api.Peer, len(config.UpstreamPeers)),
-		downStreamPeers: make([]*api.Peer, len(config.DownstreamPeers)),
+		upstreamPeers:   make([]*api.Peer, len(config.UpstreamPeers)),
+		downstreamPeers: make([]*api.Peer, len(config.DownstreamPeers)),
 
 		rib: make(rib),
 	}
@@ -145,7 +145,7 @@ func (bc *bgpc) addPeers(ctx context.Context) error {
 			return errors.Join(errors.New("could not add peer"), err)
 		}
 
-		bc.downStreamPeers = append(bc.downStreamPeers, peer)
+		bc.downstreamPeers = append(bc.downstreamPeers, peer)
 	}
 
 	return nil
