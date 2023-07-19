@@ -10,17 +10,28 @@ import (
 	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceshut"
 	"github.com/charmbracelet/log"
 	"github.com/osrg/gobgp/v3/pkg/server"
+	"google.golang.org/protobuf/proto"
 
 	api "github.com/osrg/gobgp/v3/api"
 )
 
+type prefix string
+type route string
+type weight int
+
+type rib map[prefix]map[route]weight
+
 type bgpc struct {
 	config Config
+	mut    sync.RWMutex
 
 	server *server.BgpServer
 	gshut  *graceshut.GraceShut
 
-	upstreamPeers []*api.Peer
+	upStreamPeers   []*api.Peer
+	downStreamPeers []*api.Peer
+
+	rib rib
 }
 
 func New(config Config) *bgpc {
@@ -29,6 +40,11 @@ func New(config Config) *bgpc {
 
 		server: server.NewBgpServer(server.LoggerOption(GoBGPLogger{})),
 		gshut:  graceshut.New(),
+
+		upStreamPeers:   make([]*api.Peer, len(config.UpstreamPeers)),
+		downStreamPeers: make([]*api.Peer, len(config.DownstreamPeers)),
+
+		rib: make(rib),
 	}
 }
 
@@ -59,7 +75,7 @@ func (bc *bgpc) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := bc.listPeers(ctx); err != nil {
+		if err := bc.update(ctx); err != nil {
 			errc <- err
 		}
 	}()
@@ -117,11 +133,11 @@ func (bc *bgpc) stopBGP(ctx context.Context) error {
 }
 
 func (bc *bgpc) addPeers(ctx context.Context) error {
-	for _, upstreamPeer := range bc.config.UpstreamPeers {
+	for _, downStreamPeer := range bc.config.DownstreamPeers {
 		peer := &api.Peer{
 			Conf: &api.PeerConf{
-				NeighborAddress: upstreamPeer.Address,
-				PeerAsn:         uint32(upstreamPeer.ASN),
+				NeighborAddress: downStreamPeer.Address,
+				PeerAsn:         bc.config.ASN,
 			},
 		}
 
@@ -129,47 +145,79 @@ func (bc *bgpc) addPeers(ctx context.Context) error {
 			return errors.Join(errors.New("could not add peer"), err)
 		}
 
-		bc.upstreamPeers = append(bc.upstreamPeers, peer)
+		bc.downStreamPeers = append(bc.downStreamPeers, peer)
 	}
 
 	return nil
 }
 
-func (bc *bgpc) listPeers(ctx context.Context) error {
-	run := true
-	for run {
-		err := bc.server.ListPath(ctx, &api.ListPathRequest{
-			Family: &api.Family{
-				Afi:  api.Family_AFI_IP,
-				Safi: api.Family_SAFI_UNICAST,
-			},
-		}, func(d *api.Destination) {
-			fmt.Println(d.Prefix, len(d.Paths))
+func (bc *bgpc) updateRIB(ctx context.Context) error {
+	bc.mut.Lock()
+	defer bc.mut.Unlock()
 
-			for _, path := range d.Paths {
-				fmt.Printf("%s \n", path.NeighborIp)
+	rib := make(rib)
+	localPrefAttr := &api.LocalPrefAttribute{}
 
-				for _, attr := range path.Pattrs {
-					fmt.Println(attr)
+	err := bc.server.ListPath(ctx, &api.ListPathRequest{
+		Family: &api.Family{
+			Afi:  api.Family_AFI_IP,
+			Safi: api.Family_SAFI_UNICAST,
+		},
+	}, func(d *api.Destination) {
+		rib[prefix(d.GetPrefix())] = make(map[route]weight)
+
+		for _, path := range d.GetPaths() {
+			for _, attr := range path.GetPattrs() {
+				if !attr.MessageIs(localPrefAttr) {
+					continue
 				}
+
+				if err := proto.Unmarshal(attr.Value, localPrefAttr); err != nil {
+					continue
+				}
+
+				rib[prefix(d.GetPrefix())][route(path.GetNeighborIp())] = weight(localPrefAttr.GetLocalPref())
+				break
 			}
-		})
-		if err != nil {
-			return errors.Join(errors.New("could not list path"), err)
+
 		}
+	})
+	if err != nil {
+		return errors.Join(errors.New("failed updating rib"), err)
+	}
 
-		//bc.server.ListPeer(ctx, &api.ListPeerRequest{}, func(p *api.Peer) {
-		//	fmt.Println(p)
-		//})
+	bc.rib = rib
 
-		time.Sleep(1 * time.Second)
+	fmt.Println(bc.rib)
 
+	return nil
+}
+
+func (bc *bgpc) update(ctx context.Context) error {
+	run := true
+	lastRun := time.Now().Add(-bc.config.UpdateInterval * 2)
+	var err error
+
+LOOP:
+	for run {
 		select {
 		case <-ctx.Done():
 			run = false
+			break LOOP
 		default:
+			time.Sleep(time.Second)
 		}
 
+		if time.Since(lastRun) < bc.config.UpdateInterval {
+			continue
+		}
+
+		err = bc.updateRIB(ctx)
+		if err != nil {
+			return err
+		}
+
+		lastRun = time.Now()
 	}
 
 	return nil
