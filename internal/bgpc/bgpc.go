@@ -16,10 +16,10 @@ import (
 )
 
 type prefix string
-type route string
+type nexthop string
 type weight int
 
-type rib map[prefix]map[route]weight
+type rib map[prefix]map[nexthop]weight
 
 type bgpc struct {
 	config Config
@@ -164,7 +164,7 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 			Safi: api.Family_SAFI_UNICAST,
 		},
 	}, func(d *api.Destination) {
-		rib[prefix(d.GetPrefix())] = make(map[route]weight)
+		rib[prefix(d.GetPrefix())] = make(map[nexthop]weight)
 
 		for _, path := range d.GetPaths() {
 			for _, attr := range path.GetPattrs() {
@@ -176,7 +176,7 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 					continue
 				}
 
-				rib[prefix(d.GetPrefix())][route(path.GetNeighborIp())] = weight(localPrefAttr.GetLocalPref())
+				rib[prefix(d.GetPrefix())][nexthop(path.GetNeighborIp())] = weight(localPrefAttr.GetLocalPref())
 				break
 			}
 
