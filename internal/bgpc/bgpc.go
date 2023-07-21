@@ -26,9 +26,9 @@ const (
 	UPSTREAM_VRF   vrf = "upstream"
 )
 
-type weight int
+type routeWeight float64
 
-type rib map[netip.Prefix]map[netip.Addr]weight
+type rib map[netip.Prefix]map[netip.Addr]routeWeight
 
 type bgpc struct {
 	config Config
@@ -250,7 +250,8 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 			return
 		}
 
-		rib[prefix] = make(map[netip.Addr]weight)
+		var totalWeight routeWeight
+		rib[prefix] = make(map[netip.Addr]routeWeight)
 
 		for _, path := range d.GetPaths() {
 			for _, attr := range path.GetPattrs() {
@@ -271,7 +272,12 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 				continue
 			}
 
-			rib[prefix][nextHop] = weight(localPrefAttr.GetLocalPref())
+			totalWeight += routeWeight(localPrefAttr.GetLocalPref())
+			rib[prefix][nextHop] = routeWeight(localPrefAttr.GetLocalPref())
+		}
+
+		for nextHop, weight := range rib[prefix] {
+			rib[prefix][nextHop] = (1 / totalWeight) * weight
 		}
 	})
 	if err != nil {
@@ -280,12 +286,9 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 
 	bc.rib = rib
 
-	//fmt.Println(rib)
-
 	for prefix, nexthops := range bc.rib {
 		for nexthop, weight := range nexthops {
-			fmt.Printf("%s via %s [weight: %d]\n", prefix, nexthop, weight)
-
+			fmt.Printf("%s via %s [weight: %f]\n", prefix, nexthop, weight)
 		}
 	}
 
