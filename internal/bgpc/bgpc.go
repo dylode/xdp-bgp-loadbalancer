@@ -96,10 +96,10 @@ func (bc *bgpc) Run(ctx context.Context) error {
 
 	// wait for exit signal
 	select {
-	case cErr := <-errc:
-		err = cErr
 	case <-bc.gshut.WaitForClose():
 	case <-ctx.Done():
+	case cErr := <-errc:
+		err = cErr
 	}
 
 	// clean up
