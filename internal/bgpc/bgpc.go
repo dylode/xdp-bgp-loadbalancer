@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -26,11 +26,9 @@ const (
 	UPSTREAM_VRF   vrf = "upstream"
 )
 
-type prefix *net.IPNet
-type nexthop *net.IP
 type weight int
 
-type rib map[prefix]map[nexthop]weight
+type rib map[netip.Prefix]map[netip.Addr]weight
 
 type bgpc struct {
 	config Config
@@ -216,6 +214,16 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 	rib := make(rib)
 	localPrefAttr := &api.LocalPrefAttribute{}
 
+	allowedPrefixes := make([]netip.Prefix, len(bc.config.AllowedPrefixes))
+	for _, allowedPrefix := range bc.config.AllowedPrefixes {
+		prefix, err := netip.ParsePrefix(allowedPrefix)
+		if err != nil {
+			return err
+		}
+
+		allowedPrefixes = append(allowedPrefixes, prefix)
+	}
+
 	err := bc.server.ListPath(ctx, &api.ListPathRequest{
 		Family: &api.Family{
 			Afi:  api.Family_AFI_IP,
@@ -224,13 +232,25 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 		TableType: api.TableType_VRF,
 		Name:      string(DOWNSTREAM_VRF),
 	}, func(d *api.Destination) {
-		_, prefixCIDR, err := net.ParseCIDR(strings.Split(d.GetPrefix(), ":")[2])
+		prefix, err := netip.ParsePrefix(strings.Split(d.GetPrefix(), ":")[2])
 		if err != nil {
 			log.Warn("could not parse prefix", "prefix", d.GetPrefix(), "err", err)
 			return
 		}
 
-		rib[prefix(prefixCIDR)] = make(map[nexthop]weight)
+		allowed := false
+		for _, allowedPrefix := range allowedPrefixes {
+			if prefix.Bits() >= allowedPrefix.Bits() && allowedPrefix.Contains(prefix.Addr()) {
+				allowed = true
+				break
+			}
+		}
+		if !allowed {
+			log.Debug("ignored not allowed prefix", "prefix", prefix.String())
+			return
+		}
+
+		rib[prefix] = make(map[netip.Addr]weight)
 
 		for _, path := range d.GetPaths() {
 			for _, attr := range path.GetPattrs() {
@@ -245,8 +265,13 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 				break
 			}
 
-			nextHop := net.ParseIP(path.GetNeighborIp())
-			rib[prefix(prefixCIDR)][nexthop(&nextHop)] = weight(localPrefAttr.GetLocalPref())
+			nextHop, err := netip.ParseAddr(path.GetNeighborIp())
+			if err != nil {
+				log.Warn("could not parse ip", "ip", path.GetNeighborIp(), "err", err)
+				continue
+			}
+
+			rib[prefix][nextHop] = weight(localPrefAttr.GetLocalPref())
 		}
 	})
 	if err != nil {
@@ -255,10 +280,12 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 
 	bc.rib = rib
 
+	//fmt.Println(rib)
+
 	for prefix, nexthops := range bc.rib {
 		for nexthop, weight := range nexthops {
-			size, _ := prefix.Mask.Size()
-			fmt.Printf("%s/%d via %s [weight: %d]\n", prefix.IP.String(), size, *nexthop, weight)
+			fmt.Printf("%s via %s [weight: %d]\n", prefix, nexthop, weight)
+
 		}
 	}
 
