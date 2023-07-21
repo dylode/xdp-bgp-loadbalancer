@@ -10,6 +10,9 @@ bgp:
   downstream_peers:
     - address: 10.145.145.10
     - address: 10.145.145.11
+  upstream_peers:
+    - address: 10.145.145.20
+      asn: 65200
 
 #loadbalancers:
 #  - name: default

@@ -2,6 +2,7 @@
 version: '3'
 services:
   downstream1:
+    container_name: downstream1
     image: quay.io/frrouting/frr:8.5.2
     volumes:
       - ./configs/frr/downstream1:/etc/frr
@@ -14,6 +15,7 @@ services:
       xgl:
         ipv4_address: 10.145.145.10
   downstream2:
+    container_name: downstream2
     image: quay.io/frrouting/frr:8.5.2
     volumes:
       - ./configs/frr/downstream2:/etc/frr
@@ -25,6 +27,19 @@ services:
     networks:
       xgl:
         ipv4_address: 10.145.145.11
+  upstream1:
+    container_name: upstream1
+    image: quay.io/frrouting/frr:8.5.2
+    volumes:
+      - ./configs/frr/upstream1:/etc/frr
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+      - SYS_ADMIN
+    restart: unless-stopped
+    networks:
+      xgl:
+        ipv4_address: 10.145.145.20
 
 networks:
   xgl:

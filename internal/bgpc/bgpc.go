@@ -5,25 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
-	"strings"
 	"sync"
 	"time"
 
 	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceshut"
 	"github.com/charmbracelet/log"
-	"github.com/osrg/gobgp/v3/pkg/apiutil"
-	"github.com/osrg/gobgp/v3/pkg/packet/bgp"
 	"github.com/osrg/gobgp/v3/pkg/server"
 	"google.golang.org/protobuf/proto"
 
 	api "github.com/osrg/gobgp/v3/api"
-)
-
-type vrf string
-
-const (
-	DOWNSTREAM_VRF vrf = "downstream"
-	UPSTREAM_VRF   vrf = "upstream"
 )
 
 type routeWeight float64
@@ -68,11 +58,6 @@ func (bc *bgpc) Run(ctx context.Context) error {
 	go bc.server.Serve()
 
 	err := bc.startBGP(ctx)
-	if err != nil {
-		return err
-	}
-
-	err = bc.configureVRFs(ctx)
 	if err != nil {
 		return err
 	}
@@ -146,54 +131,12 @@ func (bc *bgpc) stopBGP(ctx context.Context) error {
 	return nil
 }
 
-func (bc *bgpc) configureVRFs(ctx context.Context) error {
-	for index, vrfName := range []vrf{UPSTREAM_VRF, DOWNSTREAM_VRF} {
-		var rd bgp.RouteDistinguisherInterface
-		rd, err := bgp.ParseRouteDistinguisher(fmt.Sprintf("%d:%d", bc.config.ASN, index*100))
-		if err != nil {
-			return err
-		}
-
-		v, err := apiutil.MarshalRD(rd)
-		if err != nil {
-			return err
-		}
-
-		rt, err := bgp.ParseRouteTarget(fmt.Sprintf("%d:%d", bc.config.ASN, index*100))
-		if err != nil {
-			return err
-		}
-
-		rts, err := apiutil.MarshalRTs([]bgp.ExtendedCommunityInterface{
-			rt,
-		})
-		if err != nil {
-			return err
-		}
-
-		err = bc.server.AddVrf(ctx, &api.AddVrfRequest{
-			Vrf: &api.Vrf{
-				Name:     string(vrfName),
-				Rd:       v,
-				ImportRt: rts,
-				ExportRt: rts,
-			},
-		})
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (bc *bgpc) addPeers(ctx context.Context) error {
 	for _, downStreamPeer := range bc.config.DownstreamPeers {
 		peer := &api.Peer{
 			Conf: &api.PeerConf{
 				NeighborAddress: downStreamPeer.Address,
 				PeerAsn:         bc.config.ASN,
-				Vrf:             string(DOWNSTREAM_VRF),
 			},
 		}
 
@@ -202,6 +145,21 @@ func (bc *bgpc) addPeers(ctx context.Context) error {
 		}
 
 		bc.downstreamPeers = append(bc.downstreamPeers, peer)
+	}
+
+	for _, upStreamPeer := range bc.config.UpstreamPeers {
+		peer := &api.Peer{
+			Conf: &api.PeerConf{
+				NeighborAddress: upStreamPeer.Address,
+				PeerAsn:         upStreamPeer.ASN,
+			},
+		}
+
+		if err := bc.server.AddPeer(ctx, &api.AddPeerRequest{Peer: peer}); err != nil {
+			return errors.Join(errors.New("could not add peer"), err)
+		}
+
+		bc.upstreamPeers = append(bc.upstreamPeers, peer)
 	}
 
 	return nil
@@ -229,10 +187,9 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 			Afi:  api.Family_AFI_IP,
 			Safi: api.Family_SAFI_UNICAST,
 		},
-		TableType: api.TableType_VRF,
-		Name:      string(DOWNSTREAM_VRF),
+		TableType: api.TableType_GLOBAL,
 	}, func(d *api.Destination) {
-		prefix, err := netip.ParsePrefix(strings.Split(d.GetPrefix(), ":")[2])
+		prefix, err := netip.ParsePrefix(d.GetPrefix())
 		if err != nil {
 			log.Warn("could not parse prefix", "prefix", d.GetPrefix(), "err", err)
 			return
