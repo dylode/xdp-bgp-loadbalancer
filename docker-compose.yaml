@@ -1,10 +1,10 @@
 ---
 version: '3'
 services:
-  upstream1:
+  downstream1:
     image: quay.io/frrouting/frr:8.5.2
     volumes:
-      - ./configs/frr/upstream1:/etc/frr
+      - ./configs/frr/downstream1:/etc/frr
     cap_add:
       - NET_RAW
       - NET_ADMIN
@@ -13,10 +13,10 @@ services:
     networks:
       xgl:
         ipv4_address: 10.145.145.10
-  upstream2:
+  downstream2:
     image: quay.io/frrouting/frr:8.5.2
     volumes:
-      - ./configs/frr/upstream2:/etc/frr
+      - ./configs/frr/downstream2:/etc/frr
     cap_add:
       - NET_RAW
       - NET_ADMIN
