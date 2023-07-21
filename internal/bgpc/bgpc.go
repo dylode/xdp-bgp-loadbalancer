@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -24,8 +26,8 @@ const (
 	UPSTREAM_VRF   vrf = "upstream"
 )
 
-type prefix string
-type nexthop string
+type prefix *net.IPNet
+type nexthop *net.IP
 type weight int
 
 type rib map[prefix]map[nexthop]weight
@@ -72,7 +74,7 @@ func (bc *bgpc) Run(ctx context.Context) error {
 		return err
 	}
 
-	err = bc.configureVRF(ctx)
+	err = bc.configureVRFs(ctx)
 	if err != nil {
 		return err
 	}
@@ -106,7 +108,7 @@ func (bc *bgpc) Run(ctx context.Context) error {
 	log.Debug("closing bgp server controller")
 	cancel()
 
-	if err := bc.stopBGP(context.Background()); err != nil {
+	if err := bc.stopBGP(ctx); err != nil {
 		errc <- err
 	}
 
@@ -146,7 +148,7 @@ func (bc *bgpc) stopBGP(ctx context.Context) error {
 	return nil
 }
 
-func (bc *bgpc) configureVRF(ctx context.Context) error {
+func (bc *bgpc) configureVRFs(ctx context.Context) error {
 	for index, vrfName := range []vrf{UPSTREAM_VRF, DOWNSTREAM_VRF} {
 		var rd bgp.RouteDistinguisherInterface
 		rd, err := bgp.ParseRouteDistinguisher(fmt.Sprintf("%d:%d", bc.config.ASN, index*100))
@@ -222,7 +224,13 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 		TableType: api.TableType_VRF,
 		Name:      string(DOWNSTREAM_VRF),
 	}, func(d *api.Destination) {
-		rib[prefix(d.GetPrefix())] = make(map[nexthop]weight)
+		_, prefixCIDR, err := net.ParseCIDR(strings.Split(d.GetPrefix(), ":")[2])
+		if err != nil {
+			log.Warn("could not parse prefix", "prefix", d.GetPrefix(), "err", err)
+			return
+		}
+
+		rib[prefix(prefixCIDR)] = make(map[nexthop]weight)
 
 		for _, path := range d.GetPaths() {
 			for _, attr := range path.GetPattrs() {
@@ -234,10 +242,11 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 					continue
 				}
 
-				rib[prefix(d.GetPrefix())][nexthop(path.GetNeighborIp())] = weight(localPrefAttr.GetLocalPref())
 				break
 			}
 
+			nextHop := net.ParseIP(path.GetNeighborIp())
+			rib[prefix(prefixCIDR)][nexthop(&nextHop)] = weight(localPrefAttr.GetLocalPref())
 		}
 	})
 	if err != nil {
@@ -246,7 +255,12 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 
 	bc.rib = rib
 
-	fmt.Println(bc.rib)
+	for prefix, nexthops := range bc.rib {
+		for nexthop, weight := range nexthops {
+			size, _ := prefix.Mask.Size()
+			fmt.Printf("%s/%d via %s [weight: %d]\n", prefix.IP.String(), size, *nexthop, weight)
+		}
+	}
 
 	return nil
 }
