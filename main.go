@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"dylode.nl/xdp-bgp-loadbalancer/cmd/xgl"
+	"dylode.nl/xdp-bgp-loadbalancer/cmd/xbl"
 )
 
 func main() {
@@ -13,7 +13,7 @@ func main() {
 }
 
 func run(args []string) error {
-	cmd := xgl.NewCommand()
+	cmd := xbl.NewCommand()
 	cmd.SetArgs(args)
 	return cmd.Execute()
 }

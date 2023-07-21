@@ -30,7 +30,8 @@ type bgpc struct {
 	upstreamPeers   []*api.Peer
 	downstreamPeers []*api.Peer
 
-	rib rib
+	rib             rib
+	allowedPrefixes []netip.Prefix
 }
 
 func New(config Config) *bgpc {
@@ -43,7 +44,8 @@ func New(config Config) *bgpc {
 		upstreamPeers:   make([]*api.Peer, len(config.UpstreamPeers)),
 		downstreamPeers: make([]*api.Peer, len(config.DownstreamPeers)),
 
-		rib: make(rib),
+		rib:             make(rib),
+		allowedPrefixes: make([]netip.Prefix, len(config.AllowedPrefixes)),
 	}
 }
 
@@ -57,7 +59,12 @@ func (bc *bgpc) Run(ctx context.Context) error {
 	log.Debug("starting bgp server controller")
 	go bc.server.Serve()
 
-	err := bc.startBGP(ctx)
+	err := bc.setAllowedPrefixes()
+	if err != nil {
+		return err
+	}
+
+	err = bc.startBGP(ctx)
 	if err != nil {
 		return err
 	}
@@ -131,6 +138,19 @@ func (bc *bgpc) stopBGP(ctx context.Context) error {
 	return nil
 }
 
+func (bc *bgpc) setAllowedPrefixes() error {
+	for _, allowedPrefix := range bc.config.AllowedPrefixes {
+		prefix, err := netip.ParsePrefix(allowedPrefix)
+		if err != nil {
+			return err
+		}
+
+		bc.allowedPrefixes = append(bc.allowedPrefixes, prefix)
+	}
+
+	return nil
+}
+
 func (bc *bgpc) addPeers(ctx context.Context) error {
 	for _, downStreamPeer := range bc.config.DownstreamPeers {
 		peer := &api.Peer{
@@ -170,24 +190,12 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 	defer bc.mut.Unlock()
 
 	rib := make(rib)
-	localPrefAttr := &api.LocalPrefAttribute{}
-
-	allowedPrefixes := make([]netip.Prefix, len(bc.config.AllowedPrefixes))
-	for _, allowedPrefix := range bc.config.AllowedPrefixes {
-		prefix, err := netip.ParsePrefix(allowedPrefix)
-		if err != nil {
-			return err
-		}
-
-		allowedPrefixes = append(allowedPrefixes, prefix)
-	}
 
 	err := bc.server.ListPath(ctx, &api.ListPathRequest{
 		Family: &api.Family{
 			Afi:  api.Family_AFI_IP,
 			Safi: api.Family_SAFI_UNICAST,
 		},
-		TableType: api.TableType_GLOBAL,
 	}, func(d *api.Destination) {
 		prefix, err := netip.ParsePrefix(d.GetPrefix())
 		if err != nil {
@@ -195,15 +203,8 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 			return
 		}
 
-		allowed := false
-		for _, allowedPrefix := range allowedPrefixes {
-			if prefix.Bits() >= allowedPrefix.Bits() && allowedPrefix.Contains(prefix.Addr()) {
-				allowed = true
-				break
-			}
-		}
-		if !allowed {
-			log.Debug("ignored not allowed prefix", "prefix", prefix.String())
+		if !bc.isAllowedPrefix(prefix) {
+			log.Debug("prefix is not allowed", "prefix", prefix.String())
 			return
 		}
 
@@ -211,16 +212,10 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 		rib[prefix] = make(map[netip.Addr]routeWeight)
 
 		for _, path := range d.GetPaths() {
-			for _, attr := range path.GetPattrs() {
-				if !attr.MessageIs(localPrefAttr) {
-					continue
-				}
-
-				if err := proto.Unmarshal(attr.Value, localPrefAttr); err != nil {
-					continue
-				}
-
-				break
+			localPreference, err := bc.getLocalPreference(path)
+			if err != nil {
+				log.Warn("could not find local preference", "uuid", path.Uuid, "err", err)
+				continue
 			}
 
 			nextHop, err := netip.ParseAddr(path.GetNeighborIp())
@@ -229,8 +224,9 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 				continue
 			}
 
-			totalWeight += routeWeight(localPrefAttr.GetLocalPref())
-			rib[prefix][nextHop] = routeWeight(localPrefAttr.GetLocalPref())
+			weight := routeWeight(localPreference)
+			totalWeight += weight
+			rib[prefix][nextHop] = weight
 		}
 
 		for nextHop, weight := range rib[prefix] {
@@ -250,6 +246,34 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (bc *bgpc) getLocalPreference(path *api.Path) (uint32, error) {
+	localPrefAttr := &api.LocalPrefAttribute{}
+
+	for _, attr := range path.GetPattrs() {
+		if !attr.MessageIs(localPrefAttr) {
+			continue
+		}
+
+		if err := proto.Unmarshal(attr.Value, localPrefAttr); err != nil {
+			return 0, errors.Join(errors.New("error during unmarshal LocalPrefAttribute"), err)
+		}
+
+		return localPrefAttr.GetLocalPref(), nil
+	}
+
+	return 0, errors.New("could not find local preference attribute in path")
+}
+
+func (bc *bgpc) isAllowedPrefix(prefix netip.Prefix) bool {
+	for _, allowedPrefix := range bc.allowedPrefixes {
+		if prefix.Bits() >= allowedPrefix.Bits() && allowedPrefix.Contains(prefix.Addr()) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (bc *bgpc) update(ctx context.Context) error {

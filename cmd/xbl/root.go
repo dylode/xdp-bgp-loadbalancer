@@ -1,7 +1,7 @@
-package xgl
+package xbl
 
 import (
-	"dylode.nl/xdp-bgp-loadbalancer/cmd/xgl/server"
+	"dylode.nl/xdp-bgp-loadbalancer/cmd/xbl/server"
 	"github.com/spf13/cobra"
 )
 

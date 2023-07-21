@@ -8,7 +8,6 @@ import (
 	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceshut"
 )
 
-
 func RunWithConfigFile(configFilePath string) error {
 	config := ParseConfig(configFilePath)
 	return Run(config)
@@ -45,8 +44,10 @@ func Run(config Config) error {
 
 	// process errors
 	close(errc)
-	for cErr := range errc {
-		err = errors.Join(err, cErr)
+	if ctx.Err() == nil {
+		for cErr := range errc {
+			err = errors.Join(err, cErr)
+		}
 	}
 
 	return err

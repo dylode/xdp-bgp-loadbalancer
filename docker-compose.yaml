@@ -12,7 +12,7 @@ services:
       - SYS_ADMIN
     restart: unless-stopped
     networks:
-      xgl:
+      xbl:
         ipv4_address: 10.145.145.10
   downstream2:
     container_name: downstream2
@@ -25,7 +25,7 @@ services:
       - SYS_ADMIN
     restart: unless-stopped
     networks:
-      xgl:
+      xbl:
         ipv4_address: 10.145.145.11
   upstream1:
     container_name: upstream1
@@ -38,11 +38,11 @@ services:
       - SYS_ADMIN
     restart: unless-stopped
     networks:
-      xgl:
+      xbl:
         ipv4_address: 10.145.145.20
 
 networks:
-  xgl:
+  xbl:
     driver: bridge
     ipam:
       driver: default
