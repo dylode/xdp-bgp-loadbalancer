@@ -21,7 +21,7 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configFilePath, "config", "xbl-config.yaml", "path to xbl config file")
+	cmd.Flags().StringVar(&configFilePath, "config", "configs/xbl-config.yaml", "path to xbl config file")
 
 	return cmd
 }

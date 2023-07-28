@@ -1,0 +1,17 @@
+---
+services:
+  upstream1_frr:
+    container_name: upstream1_frr
+    image: quay.io/frrouting/frr:8.5.2
+    volumes:
+      - ./frr:/etc/frr
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+      - SYS_ADMIN
+    restart: unless-stopped
+    networks:
+      internal:
+        ipv4_address: 10.145.145.2
+      external:
+        ipv4_address: 10.200.200.2

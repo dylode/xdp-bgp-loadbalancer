@@ -21,7 +21,7 @@ func NewCommand() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVar(&configFilePath, "config", "reqgenerator-config.yaml", "path to reqgenerator config file")
+	cmd.Flags().StringVar(&configFilePath, "config", "configs/reqgenerator-config.yaml", "path to reqgenerator config file")
 
 	return cmd
 }

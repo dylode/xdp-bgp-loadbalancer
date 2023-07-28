@@ -218,15 +218,15 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 				continue
 			}
 
-			nextHop, err := netip.ParseAddr(path.GetNeighborIp())
+			nextHop, err := bc.getNextHop(path)
 			if err != nil {
-				log.Warn("could not parse ip", "ip", path.GetNeighborIp(), "err", err)
+				log.Warn("could not parse next hop", "err", err)
 				continue
 			}
 
 			weight := routeWeight(localPreference)
 			totalWeight += weight
-			rib[prefix][nextHop] = weight
+			rib[prefix][*nextHop] = weight
 		}
 
 		for nextHop, weight := range rib[prefix] {
@@ -264,6 +264,29 @@ func (bc *bgpc) getLocalPreference(path *api.Path) (uint32, error) {
 	}
 
 	return 0, errors.New("could not find local preference attribute in path")
+}
+
+func (bc *bgpc) getNextHop(path *api.Path) (*netip.Addr, error) {
+	nextHopAttr := &api.NextHopAttribute{}
+
+	for _, attr := range path.GetPattrs() {
+		if !attr.MessageIs(nextHopAttr) {
+			continue
+		}
+
+		if err := proto.Unmarshal(attr.Value, nextHopAttr); err != nil {
+			return nil, errors.Join(errors.New("error during unmarshal NextHopAttribute"), err)
+		}
+
+		nextHop, err := netip.ParseAddr(nextHopAttr.GetNextHop())
+		if err != nil {
+			return nil, errors.Join(errors.New("could not parse next hop"), err)
+		}
+
+		return &nextHop, nil
+	}
+
+	return nil, errors.New("could not find next hop attribute in path")
 }
 
 func (bc *bgpc) isAllowedPrefix(prefix netip.Prefix) bool {

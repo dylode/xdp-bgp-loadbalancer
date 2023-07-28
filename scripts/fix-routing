@@ -1,0 +1,11 @@
+#!/bin/bash
+
+sudo nsenter -n -t $(docker inspect --format {{.State.Pid}} reqgenerator) ip route add 100.100.100.0/24 via 10.200.200.2
+
+for container in downstream1_node downstream2_node; do
+    sudo nsenter -n -t $(docker inspect --format {{.State.Pid}} $container) ip route add 10.200.200.0/24 via 10.145.145.2
+    sudo nsenter -n -t $(docker inspect --format {{.State.Pid}} $container) ip route add local 100.100.100.0/24 dev lo
+done
+ 
+# As long as we dont have XDP loadbalancer yet, let Linux do the loadbalancing
+sudo ip route add 100.100.100.0/24 nexthop via 10.145.145.11 weight 1 nexthop via 10.145.145.13 weight 1

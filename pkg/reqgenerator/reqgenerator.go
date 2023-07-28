@@ -22,14 +22,18 @@ func Run(config Config) error {
 
 	client := &http.Client{
 		Transport: transport,
+		Timeout:   3 * time.Second,
 	}
 
 	for {
+		time.Sleep(config.Interval)
+
 		randomURL := config.URLs[rand.Intn(len(config.URLs))]
 
 		resp, err := client.Get(randomURL)
 		if err != nil {
 			fmt.Println("Error:", err)
+			continue
 		} else {
 			body, _ := io.ReadAll(resp.Body)
 			fmt.Printf("Response from %s: body=%s\n", randomURL, string(body))
@@ -37,6 +41,5 @@ func Run(config Config) error {
 
 		resp.Body.Close()
 		client.CloseIdleConnections()
-		time.Sleep(config.Interval)
 	}
 }

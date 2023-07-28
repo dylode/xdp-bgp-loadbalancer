@@ -1,0 +1,9 @@
+---
+interval: 1s
+urls:
+  - http://100.100.100.5:8080/increase
+  - http://100.100.100.10:8080/increase
+  - http://100.100.100.15:8080/increase
+  - http://100.100.100.20:8080/increase
+  - http://100.100.100.25:8080/increase
+  - http://100.100.100.30:8080/increase

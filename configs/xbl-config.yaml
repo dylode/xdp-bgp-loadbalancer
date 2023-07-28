@@ -1,0 +1,14 @@
+---
+bgp:
+  asn: 65100
+  router_id: 1.1.1.1
+  listen_port: 179
+  update_interval: 5s
+  allowed_prefixes:
+    - 100.100.100.0/24
+  downstream_peers:
+    - address: 10.145.145.10
+    - address: 10.145.145.12
+  upstream_peers:
+    - address: 10.145.145.2
+      asn: 65200

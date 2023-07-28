@@ -1,50 +1,39 @@
 ---
 version: '3'
+
+include:
+  - ./configs/downstream1/docker-compose.yaml
+  - ./configs/downstream2/docker-compose.yaml
+  - ./configs/upstream1/docker-compose.yaml
+
 services:
-  downstream1:
-    container_name: downstream1
-    image: quay.io/frrouting/frr:8.5.2
-    volumes:
-      - ./configs/frr/downstream1:/etc/frr
+  reqgenerator:
+    container_name: reqgenerator
+    image: golang:1.20
     cap_add:
-      - NET_RAW
       - NET_ADMIN
-      - SYS_ADMIN
+    depends_on:
+      - downstream1_node
+      - downstream2_node
+    volumes:
+      - ./:/go/src/xbl
+    working_dir: /go/src/xbl
     restart: unless-stopped
     networks:
-      xbl:
-        ipv4_address: 10.145.145.10
-  downstream2:
-    container_name: downstream2
-    image: quay.io/frrouting/frr:8.5.2
-    volumes:
-      - ./configs/frr/downstream2:/etc/frr
-    cap_add:
-      - NET_RAW
-      - NET_ADMIN
-      - SYS_ADMIN
-    restart: unless-stopped
-    networks:
-      xbl:
-        ipv4_address: 10.145.145.11
-  upstream1:
-    container_name: upstream1
-    image: quay.io/frrouting/frr:8.5.2
-    volumes:
-      - ./configs/frr/upstream1:/etc/frr
-    cap_add:
-      - NET_RAW
-      - NET_ADMIN
-      - SYS_ADMIN
-    restart: unless-stopped
-    networks:
-      xbl:
-        ipv4_address: 10.145.145.20
+      - external
+    command: ["go", "run", "main.go", "reqgenerator"]
+
 
 networks:
-  xbl:
+  internal:
     driver: bridge
     ipam:
       driver: default
       config:
         - subnet: 10.145.145.0/24
+  external:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 10.200.200.0/24

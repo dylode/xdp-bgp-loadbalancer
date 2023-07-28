@@ -1,0 +1,29 @@
+---
+version: '3'
+services:
+  downstream1_frr:
+    container_name: downstream1_frr
+    image: quay.io/frrouting/frr:8.5.2
+    volumes:
+      - ./frr:/etc/frr
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+      - SYS_ADMIN
+    restart: unless-stopped
+    networks:
+      internal:
+        ipv4_address: 10.145.145.10
+  downstream1_node:
+    container_name: downstream1_node
+    image: golang:1.20
+    volumes:
+      - ../../:/go/src/xbl
+    cap_add:
+      - NET_ADMIN
+    working_dir: /go/src/xbl
+    restart: unless-stopped
+    networks:
+      internal:
+        ipv4_address: 10.145.145.11
+    command: ["go", "run", "main.go", "reqcounter"]
