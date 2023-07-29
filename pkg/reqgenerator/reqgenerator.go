@@ -6,6 +6,16 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+)
+
+var (
+	requestCount = prometheus.NewCounter(prometheus.CounterOpts{
+		Name: "total_requests",
+		Help: "Total number of requests sent.",
+	})
 )
 
 func RunWithConfigFile(configFilePath string) error {
@@ -14,6 +24,20 @@ func RunWithConfigFile(configFilePath string) error {
 }
 
 func Run(config Config) error {
+	prometheus.MustRegister(requestCount)
+
+	mux := http.NewServeMux()
+
+	mux.Handle("/metrics", promhttp.Handler())
+
+	go func() {
+		fmt.Println("Server started on :8080")
+		err := http.ListenAndServe(":8080", mux)
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	transport := &http.Transport{
 		MaxIdleConns:        0,
 		MaxIdleConnsPerHost: 0,
@@ -34,11 +58,16 @@ func Run(config Config) error {
 		if err != nil {
 			fmt.Println("Error:", err)
 			continue
-		} else {
-			body, _ := io.ReadAll(resp.Body)
-			fmt.Printf("Response from %s: body=%s\n", randomURL, string(body))
 		}
 
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("Error:", err)
+			continue
+		}
+
+		requestCount.Inc()
+		fmt.Printf("Response from %s: body=%s\n", randomURL, string(body))
 		resp.Body.Close()
 		client.CloseIdleConnections()
 	}
