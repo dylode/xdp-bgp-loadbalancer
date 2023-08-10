@@ -53,6 +53,8 @@ networks:
       driver: default
       config:
         - subnet: 10.145.145.0/24
+    driver_opts:
+      com.docker.network.bridge.name: br-internal
   external:
     driver: bridge
     ipam:

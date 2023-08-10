@@ -1,0 +1,4 @@
+#!/bin/bash
+
+sudo apt update
+sudo apt install -y clang llvm libelf-dev libpcap-dev gcc-multilib build-essential

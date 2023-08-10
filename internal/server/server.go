@@ -5,7 +5,7 @@ import (
 	"sync"
 
 	"dylode.nl/xdp-bgp-loadbalancer/internal/bgpc"
-	"dylode.nl/xdp-bgp-loadbalancer/internal/xdp"
+	"dylode.nl/xdp-bgp-loadbalancer/internal/xdpc"
 	"dylode.nl/xdp-bgp-loadbalancer/pkg/graceshut"
 )
 
@@ -30,10 +30,11 @@ func Run(config Config) error {
 		}
 	}()
 
+	xdpController := xdpc.New(config.XDPC)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := xdp.Run(config.XDP); err != nil {
+		if err := xdpController.Run(ctx); err != nil {
 			errc <- err
 		}
 	}()

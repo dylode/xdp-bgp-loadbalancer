@@ -299,18 +299,19 @@ func (bc *bgpc) isAllowedPrefix(prefix netip.Prefix) bool {
 }
 
 func (bc *bgpc) update(ctx context.Context) error {
-	run := true
 	lastRun := time.Now().Add(-bc.config.UpdateInterval * 2)
 	var err error
 
+	ticker := time.NewTicker(1 * time.Second)
+	defer ticker.Stop()
+
 LOOP:
-	for run {
+	for range ticker.C {
 		select {
 		case <-ctx.Done():
-			run = false
+			ticker.Stop()
 			break LOOP
 		default:
-			time.Sleep(time.Second)
 		}
 
 		if time.Since(lastRun) < bc.config.UpdateInterval {

@@ -6,5 +6,5 @@
             "dockerDashComposeVersion": "v2"
         }
 	},
-    "postCreateCommand": "docker compose up -d"
+    "postCreateCommand": "docker compose up -d && scripts/fix-routing && scripts/install-deps"
 }

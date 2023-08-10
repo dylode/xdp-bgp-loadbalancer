@@ -14,4 +14,4 @@ bgp:
       asn: 65200
 
 xdp:
-  interface_name: br-b69eaf65bd3b
+  interface_name: br-internal

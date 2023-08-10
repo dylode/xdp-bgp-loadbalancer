@@ -1,6 +1,3 @@
-# The development version of clang is distributed as the 'clang' binary,
-# while stable/released versions have a version number attached.
-# Pin the default clang to a stable version.
 CLANG ?= clang
 CFLAGS := -O2 -g -Wall -Werror $(CFLAGS)
 
