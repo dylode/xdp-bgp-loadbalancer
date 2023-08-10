@@ -2,6 +2,7 @@ package server
 
 import (
 	"dylode.nl/xdp-bgp-loadbalancer/internal/bgpc"
+	"dylode.nl/xdp-bgp-loadbalancer/internal/xdp"
 	"github.com/charmbracelet/log"
 
 	"github.com/spf13/viper"
@@ -11,6 +12,7 @@ const errorChanSize = 255
 
 type Config struct {
 	BGPC bgpc.Config `mapstructure:"bgp"`
+	XDP  xdp.Config  `mapstrucutre:"xdp"`
 }
 
 func ParseConfig(configFilePath string) Config {

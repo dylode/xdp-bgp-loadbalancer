@@ -3,7 +3,6 @@ package bgpc
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/netip"
 	"sync"
 	"time"
@@ -239,11 +238,11 @@ func (bc *bgpc) updateRIB(ctx context.Context) error {
 
 	bc.rib = rib
 
-	for prefix, nexthops := range bc.rib {
-		for nexthop, weight := range nexthops {
-			fmt.Printf("%s via %s [weight: %f]\n", prefix, nexthop, weight)
-		}
-	}
+	//for prefix, nexthops := range bc.rib {
+	//	for nexthop, weight := range nexthops {
+	//		fmt.Printf("%s via %s [weight: %f]\n", prefix, nexthop, weight)
+	//	}
+	//}
 
 	return nil
 }

@@ -12,3 +12,6 @@ bgp:
   upstream_peers:
     - address: 10.145.145.2
       asn: 65200
+
+xdp:
+  interface_name: br-b69eaf65bd3b
